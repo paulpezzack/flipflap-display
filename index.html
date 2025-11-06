@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flip-Flap Display</title>
+<style>
+  body {
+    background: #000;
+    color: #0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Courier New', monospace;
+    font-size: 8vw;
+  }
+  .flip {
+    perspective: 1000px;
+    display: inline-block;
+  }
+  .flap {
+    display: inline-block;
+    transform-origin: center top;
+    transition: transform 0.6s;
+  }
+  .flap.flip {
+    transform: rotateX(180deg);
+  }
+</style>
+</head>
+<body>
+<div id="display" class="flip">Loading...</div>
+
+<script>
+const SHEET_ID = "PASTE_YOUR_SHEET_ID_HERE"; // from your share URL
+const RANGE = "A1";
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tq=select%20A&range=${RANGE}`;
+
+let lastText = "";
+
+async function fetchSheet() {
+  const res = await fetch(URL);
+  const text = await res.text();
+  const match = text.match(/"([\s\S]*?)"/);
+  const message = match ? match[1] : "—";
+  if (message !== lastText) flipText(message);
+  lastText = message;
+}
+
+function flipText(msg) {
+  const el = document.getElementById("display");
+  el.classList.add("flip");
+  setTimeout(() => {
+    el.textContent = msg;
+    el.classList.remove("flip");
+  }, 300);
+}
+
+fetchSheet();
+setInterval(fetchSheet, 10000); // refresh every 10 sec
+</script>
+</body>
+</html>
