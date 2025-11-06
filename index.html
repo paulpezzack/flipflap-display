@@ -1,39 +1,71 @@
-<script>
-const SHEET_ID = "1ac4JxVWh4eKKZnA_eSMkHe2qxQlucXLtRnVa6COEumQ";
-const SHEET_NAME = "Sheet1";
-const RANGE = "A1";
-const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}&range=${RANGE}`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flip-Flap Display</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #000;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 5vw;
+      overflow: hidden;
+      margin: 0;
+    }
+    #display {
+      transition: transform 0.3s;
+    }
+    .flip {
+      transform: rotateX(90deg);
+    }
+  </style>
+</head>
+<body>
+  <div id="display">Loading...</div>
 
-let lastText = "";
+  <script>
+    const SHEET_ID = "1ac4JxVWh4eKKZnA_eSMkHe2qxQlucXLtRnVa6COEumQ";
+    const SHEET_NAME = "Sheet1"; // Tab name
+    const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
 
-async function fetchSheet() {
-  try {
-    const res = await fetch(URL);
-    const csv = await res.text();
+    let lastText = "";
 
-    // Parse the CSV: skip header and clean quotes
-    const lines = csv.trim().split("\n");
-    let message = lines[1] || "";  // Second line is A1
-    message = message.replace(/^"|"$/g, ""); // remove quotes if present
-    if (!message) message = " "; // fallback if empty
-    if (message !== lastText) flipText(message);
-    lastText = message;
+    async function fetchSheet() {
+      try {
+        const res = await fetch(URL);
+        const text = await res.text();
 
-  } catch (err) {
-    document.getElementById("display").textContent = "Error loading sheet!";
-    console.error(err);
-  }
-}
+        // GViz JSON comes wrapped in some extra characters: "/*O_o*/\ngoogle.visualization.Query.setResponse(...)"
+        const jsonText = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/)[1];
+        const data = JSON.parse(jsonText);
 
-function flipText(msg) {
-  const el = document.getElementById("display");
-  el.classList.add("flip");
-  setTimeout(() => {
-    el.textContent = msg;
-    el.classList.remove("flip");
-  }, 300);
-}
+        // Read first cell (A1)
+        let message = data.table.rows[0].c[0].v || " ";
+        if (message !== lastText) flipText(message);
+        lastText = message;
 
-fetchSheet();
-setInterval(fetchSheet, 10000);
-</script>
+      } catch (err) {
+        document.getElementById("display").textContent = "Error loading sheet!";
+        console.error(err);
+      }
+    }
+
+    function flipText(msg) {
+      const el = document.getElementById("display");
+      el.classList.add("flip");
+      setTimeout(() => {
+        el.textContent = msg;
+        el.classList.remove("flip");
+      }, 300);
+    }
+
+    fetchSheet();
+    setInterval(fetchSheet, 10000);
+  </script>
+</body>
+</html>
