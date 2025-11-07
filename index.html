@@ -1,72 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flip-Flap Display</title>
-  <style>
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: #000;
-      color: #0f0;
-      font-family: monospace;
-      font-size: 5vw;
-      overflow: hidden;
-      margin: 0;
-    }
-    #display {
-      transition: transform 0.3s;
-    }
-    .flip {
-      transform: rotateX(90deg);
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flip-Flap Display</title>
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #000;
+    font-family: monospace;
+  }
+
+  #board {
+    display: flex;
+    gap: 0.05em;
+    perspective: 600px;
+  }
+
+  .flap {
+    background: #000;
+    color: #0f0;
+    padding: 0.1em 0.2em;
+    font-size: 5vw;
+    display: inline-block;
+    transform-origin: top;
+    transition: transform 0.3s ease;
+  }
+
+  .flap.flip {
+    transform: rotateX(90deg);
+  }
+</style>
 </head>
 <body>
-  <div id="display">Loading...</div>
 
-  <script>
-    const SHEET_ID = "1SL0ptqqYMhlphdZRPj2tnOF_SNlo0Wgn3RQ2AgC-AMI";
-    const SHEET_NAME = "Sheet1"; // <-- update this if your tab has a different name
-    const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&_=${Date.now()}`;
+<div id="board">Loading...</div>
 
-    let lastText = "";
+<script>
+const SHEET_ID = "1SL0ptqqYMhlphdZRPj2tnOF_SNlo0Wgn3RQ2AgC-AMI"; // your sheet ID
+const SHEET_NAME = "Sheet1"; // change if your tab name is different
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&_=${Date.now()}`;
 
-    async function fetchSheet() {
-      try {
-        const res = await fetch(URL);
-        const text = await res.text();
+let lastMessage = "";
 
-        // Extract the JSON part from the Google response
-        const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
-        if (!match) throw new Error("Invalid sheet response");
-        const data = JSON.parse(match[1]);
+async function fetchSheet() {
+  try {
+    const res = await fetch(URL, { cache: "no-store" });
+    const text = await res.text();
 
-        // Get the first cell value (A1)
-        const message = data.table.rows[0]?.c[0]?.v || "(no data)";
-        if (message !== lastText) flipText(message);
-        lastText = message;
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
+    if (!match) throw new Error("Invalid sheet response");
 
-      } catch (err) {
-        document.getElementById("display").textContent = "⚠️ Error loading sheet";
-        console.error("Sheet load error:", err);
-      }
+    const data = JSON.parse(match[1]);
+    const message = data.table?.rows?.[0]?.c?.[0]?.v || "(no data)";
+
+    if (message !== lastMessage) {
+      updateBoard(message);
+      lastMessage = message;
     }
+  } catch (err) {
+    console.error("Sheet load error:", err);
+    const board = document.getElementById("board");
+    board.textContent = "⚠️ Error loading sheet";
+  }
+}
 
-    function flipText(msg) {
-      const el = document.getElementById("display");
-      el.classList.add("flip");
-      setTimeout(() => {
-        el.textContent = msg;
-        el.classList.remove("flip");
-      }, 300);
-    }
+function updateBoard(message) {
+  const board = document.getElementById("board");
+  board.innerHTML = ""; // clear old letters
 
-    fetchSheet();
-    setInterval(fetchSheet, 5000); // refresh every 5 seconds
-  </script>
+  for (let char of message) {
+    const flap = document.createElement("div");
+    flap.className = "flap";
+    flap.textContent = char;
+    board.appendChild(flap);
+
+    // Animate flip
+    setTimeout(() => flap.classList.add("flip"), 50);
+    setTimeout(() => flap.classList.remove("flip"), 350);
+  }
+}
+
+// Initial fetch
+fetchSheet();
+
+// Refresh every 5 seconds
+setInterval(fetchSheet, 5000);
+</script>
+
 </body>
 </html>
