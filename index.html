@@ -110,93 +110,97 @@
 
   <div id="board">Loading...</div>
 
-  <script>
-    const SHEET_ID = "1SL0ptqqYMhlphdZRPj2tnOF_SNlo0Wgn3RQ2AgC-AMI";
-    const SHEET_NAME = "Sheet1";
-    const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+ <script>
+const SHEET_ID = "1SL0ptqqYMhlphdZRPj2tnOF_SNlo0Wgn3RQ2AgC-AMI";
+const SHEET_NAME = "Sheet1";
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
 
-    let lastData = [];
+let lastData = [];
+let firstLoad = true;
 
-    async function fetchSheet() {
-      try {
-        const res = await fetch(URL + "&_=" + Date.now(), { cache: "no-store" });
-        const text = await res.text();
-        const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
-        if (!match) throw new Error("Invalid sheet response");
+async function fetchSheet() {
+  try {
+    const res = await fetch(URL + "&_=" + Date.now(), { cache: "no-store" });
+    const text = await res.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
+    if (!match) throw new Error("Invalid sheet response");
 
-        const data = JSON.parse(match[1]);
-        const rows = data.table?.rows || [];
-        const lines = rows.map(r => r.c.map(c => c?.v || " ").join(""));
+    const data = JSON.parse(match[1]);
+    const rows = data.table?.rows || [];
+    const lines = rows.map(r => r.c.map(c => c?.v || " ").join(""));
 
-        updateBoard(lines);
-      } catch (err) {
-        console.error("Sheet load error:", err);
-        const board = document.getElementById("board");
-        board.textContent = "⚠️ Error loading sheet";
+    updateBoard(lines);
+  } catch (err) {
+    console.error("Sheet load error:", err);
+    const board = document.getElementById("board");
+    board.textContent = "⚠️ Error loading sheet";
+  }
+}
+
+function updateBoard(lines) {
+  const board = document.getElementById("board");
+
+  // Build board structure if needed
+  if (!board.firstChild || board.children.length !== lines.length) {
+    board.innerHTML = "";
+    lastData = lines.map(line => line.split(""));
+    for (let lineText of lines) {
+      const lineDiv = document.createElement("div");
+      lineDiv.className = "line";
+      board.appendChild(lineDiv);
+
+      for (let char of lineText) {
+        const flap = document.createElement("div");
+        flap.className = "flap";
+
+        const top = document.createElement("div");
+        top.className = "top";
+        top.textContent = " ";
+
+        const bottom = document.createElement("div");
+        bottom.className = "bottom";
+        bottom.textContent = " ";
+
+        flap.appendChild(top);
+        flap.appendChild(bottom);
+        lineDiv.appendChild(flap);
       }
     }
+  }
 
-    function updateBoard(lines) {
-      const board = document.getElementById("board");
+  // Animate all changes (or first load)
+  lines.forEach((lineText, lineIdx) => {
+    lineText.split("").forEach((char, charIdx) => {
+      const flap = board.children[lineIdx].children[charIdx];
+      const top = flap.querySelector(".top");
+      const bottom = flap.querySelector(".bottom");
+      const oldChar = lastData[lineIdx]?.[charIdx] ?? " ";
 
-      // Build from scratch if empty or line count changed
-      if (!board.firstChild || board.children.length !== lines.length) {
-        board.innerHTML = "";
-        lastData = lines.map(line => line.split(""));
-
-        for (let lineText of lines) {
-          const lineDiv = document.createElement("div");
-          lineDiv.className = "line";
-          board.appendChild(lineDiv);
-
-          for (let char of lineText) {
-            const flap = document.createElement("div");
-            flap.className = "flap";
-
-            const top = document.createElement("div");
-            top.className = "top";
-            top.textContent = char;
-
-            const bottom = document.createElement("div");
-            bottom.className = "bottom";
-            bottom.textContent = char;
-
-            flap.appendChild(top);
-            flap.appendChild(bottom);
-            lineDiv.appendChild(flap);
-          }
-        }
-        return;
+      if (firstLoad || oldChar !== char) {
+        top.textContent = oldChar;
+        bottom.textContent = char;
+        flap.classList.add("flip");
+        setTimeout(() => {
+          flap.classList.remove("flip");
+          top.textContent = char;
+          bottom.textContent = char;
+        }, 350 + Math.random() * 150); // small random delay for realism
       }
+      if (!lastData[lineIdx]) lastData[lineIdx] = [];
+      lastData[lineIdx][charIdx] = char;
+    });
+  });
 
-      // Animate updates only
-      lines.forEach((lineText, lineIdx) => {
-        lineText.split("").forEach((char, charIdx) => {
-          const oldChar = lastData[lineIdx][charIdx] || " ";
-          if (oldChar !== char) {
-            const flap = board.children[lineIdx].children[charIdx];
-            const top = flap.querySelector(".top");
-            const bottom = flap.querySelector(".bottom");
+  firstLoad = false;
+}
 
-            top.textContent = oldChar;
-            bottom.textContent = char;
+// Initial load + flip all
+fetchSheet();
+// Refresh every 5 seconds
+setInterval(fetchSheet, 5000);
+</script>
 
-            flap.classList.add("flip");
-            setTimeout(() => {
-              flap.classList.remove("flip");
-              top.textContent = char;
-              bottom.textContent = char;
-            }, 350);
-          }
-          lastData[lineIdx][charIdx] = char;
-        });
-      });
-    }
-
-    // Load initially and refresh every 5 seconds
-    fetchSheet();
-    setInterval(fetchSheet, 5000);
-  </script>
 
 </body>
 </html>
+
