@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flip-Flap Display</title>
+<title>Multi-Line Flip-Flap Display</title>
 <style>
   body {
     margin: 0;
@@ -17,15 +17,21 @@
 
   #board {
     display: flex;
-    gap: 0.05em;
+    flex-direction: column;
+    gap: 0.2em;
     perspective: 600px;
+  }
+
+  .line {
+    display: flex;
+    gap: 0.05em;
   }
 
   .flap {
     background: #000;
     color: #0f0;
     padding: 0.1em 0.2em;
-    font-size: 5vw;
+    font-size: 4vw;
     display: inline-block;
     transform-origin: top;
     transition: transform 0.3s ease;
@@ -45,7 +51,7 @@ const SHEET_ID = "1SL0ptqqYMhlphdZRPj2tnOF_SNlo0Wgn3RQ2AgC-AMI"; // your sheet I
 const SHEET_NAME = "Sheet1"; // change if your tab name is different
 const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&_=${Date.now()}`;
 
-let lastMessage = "";
+let lastData = [];
 
 async function fetchSheet() {
   try {
@@ -56,12 +62,17 @@ async function fetchSheet() {
     if (!match) throw new Error("Invalid sheet response");
 
     const data = JSON.parse(match[1]);
-    const message = data.table?.rows?.[0]?.c?.[0]?.v || "(no data)";
+    const rows = data.table?.rows || [];
 
-    if (message !== lastMessage) {
-      updateBoard(message);
-      lastMessage = message;
+    // Convert rows to array of strings (each row is a line)
+    const lines = rows.map(r => r.c.map(c => c?.v || " ").join(" "));
+
+    // Only update if data changed
+    if (JSON.stringify(lines) !== JSON.stringify(lastData)) {
+      updateBoard(lines);
+      lastData = lines;
     }
+
   } catch (err) {
     console.error("Sheet load error:", err);
     const board = document.getElementById("board");
@@ -69,19 +80,25 @@ async function fetchSheet() {
   }
 }
 
-function updateBoard(message) {
+function updateBoard(lines) {
   const board = document.getElementById("board");
-  board.innerHTML = ""; // clear old letters
+  board.innerHTML = ""; // clear old lines
 
-  for (let char of message) {
-    const flap = document.createElement("div");
-    flap.className = "flap";
-    flap.textContent = char;
-    board.appendChild(flap);
+  for (let lineText of lines) {
+    const lineDiv = document.createElement("div");
+    lineDiv.className = "line";
+    board.appendChild(lineDiv);
 
-    // Animate flip
-    setTimeout(() => flap.classList.add("flip"), 50);
-    setTimeout(() => flap.classList.remove("flip"), 350);
+    for (let char of lineText) {
+      const flap = document.createElement("div");
+      flap.className = "flap";
+      flap.textContent = char;
+      lineDiv.appendChild(flap);
+
+      // Animate flip with stagger
+      setTimeout(() => flap.classList.add("flip"), 50);
+      setTimeout(() => flap.classList.remove("flip"), 350);
+    }
   }
 }
 
