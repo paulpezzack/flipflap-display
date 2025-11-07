@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multi-Line Flip-Flap Display</title>
+<title>Flip-Flap Display</title>
 <style>
   body {
     margin: 0;
@@ -18,7 +18,7 @@
   #board {
     display: flex;
     flex-direction: column;
-    gap: 0.2em;
+    gap: 0.3em;
     perspective: 600px;
   }
 
@@ -28,17 +28,47 @@
   }
 
   .flap {
-    background: #000;
+    position: relative;
+    width: 1ch;
+    height: 2em;
+    background: #111;
     color: #0f0;
-    padding: 0.1em 0.2em;
-    font-size: 4vw;
     display: inline-block;
-    transform-origin: top;
-    transition: transform 0.3s ease;
+    text-align: center;
+    perspective: 400px;
   }
 
-  .flap.flip {
-    transform: rotateX(90deg);
+  /* Top half */
+  .flap::before {
+    content: attr(data-char);
+    position: absolute;
+    top: 0;
+    left: 0; right: 0;
+    height: 50%;
+    overflow: hidden;
+    border-bottom: 1px solid #0f0;
+  }
+
+  /* Bottom half */
+  .flap::after {
+    content: attr(data-char);
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 50%;
+    overflow: hidden;
+    transform-origin: top;
+    border-top: 1px solid #0f0;
+  }
+
+  /* Flip animation */
+  .flap.flip::after {
+    animation: flip 0.35s forwards;
+  }
+
+  @keyframes flip {
+    0% { transform: rotateX(0deg); }
+    100% { transform: rotateX(90deg); }
   }
 </style>
 </head>
@@ -64,15 +94,13 @@ async function fetchSheet() {
     const data = JSON.parse(match[1]);
     const rows = data.table?.rows || [];
 
-    // Convert rows to array of strings (each row is a line)
+    // Convert rows to array of strings
     const lines = rows.map(r => r.c.map(c => c?.v || " ").join(" "));
 
-    // Only update if data changed
     if (JSON.stringify(lines) !== JSON.stringify(lastData)) {
       updateBoard(lines);
       lastData = lines;
     }
-
   } catch (err) {
     console.error("Sheet load error:", err);
     const board = document.getElementById("board");
@@ -89,15 +117,17 @@ function updateBoard(lines) {
     lineDiv.className = "line";
     board.appendChild(lineDiv);
 
+    let delay = 0;
     for (let char of lineText) {
       const flap = document.createElement("div");
       flap.className = "flap";
-      flap.textContent = char;
+      flap.setAttribute("data-char", char);
       lineDiv.appendChild(flap);
 
       // Animate flip with stagger
-      setTimeout(() => flap.classList.add("flip"), 50);
-      setTimeout(() => flap.classList.remove("flip"), 350);
+      setTimeout(() => flap.classList.add("flip"), delay);
+      setTimeout(() => flap.classList.remove("flip"), delay + 350);
+      delay += 50;
     }
   }
 }
