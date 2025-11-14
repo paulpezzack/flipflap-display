@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
+<style>
+body { 
+    background: #111;
+    color: #eee;
+    font-family: sans-serif;
+    padding: 20px;
+}
+input {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    font-size: 18px;
+}
+button {
+    width: 100%;
+    padding: 15px;
+    font-size: 20px;
+    background: #28a745;
+    border: none;
+    color: white;
+    margin-top: 10px;
+}
+</style>
+</head>
+<body>
+
+<h2>Update Split-Flap Board</h2>
+
+<input id="r1" placeholder="Row 1">
+<input id="r2" placeholder="Row 2">
+<input id="r3" placeholder="Row 3">
+<input id="r4" placeholder="Row 4">
+<input id="r5" placeholder="Row 5">
+
+<button onclick="save()">SAVE</button>
+
+<script>
+async function save() {
+
+    const token = "YOUR_TOKEN_HERE"; // <--- paste token here safely
+
+    const rows = [
+        document.getElementById("r1").value,
+        document.getElementById("r2").value,
+        document.getElementById("r3").value,
+        document.getElementById("r4").value,
+        document.getElementById("r5").value
+    ];
+
+    const body = {
+        message: "Update board",
+        content: btoa(JSON.stringify({ rows }, null, 2))
+    };
+
+    const res = await fetch(
+        "https://api.github.com/repos/paulpezzack/paulpezzack.github.io/contents/board.json",
+        {
+            method: "PUT",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        }
+    );
+
+    if (!res.ok) {
+        alert("Error: " + res.status);
+    } else {
+        alert("Updated!");
+    }
+}
+</script>
+
+</body>
+</html>
