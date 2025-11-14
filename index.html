@@ -1,54 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Split-Flap Display</title>
 <style>
-body {
+  body {
     background: #111;
-    color: #eee;
+    color: #fff;
     font-family: monospace;
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+  }
+  .row {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0;
+    font-size: 32px;
+  }
+  .cell {
+    background: #000;
+    border: 2px solid #333;
+    padding: 10px 12px;
+    margin: 2px;
+    width: 28px;
+    height: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-}
-.board {
-    font-size: 32px;
-    line-height: 48px;
-    letter-spacing: 4px;
-    background: #000;
-    padding: 20px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    border: 2px solid #333;
-}
-.row { margin: 5px 0; }
+  }
 </style>
 </head>
 <body>
 
-<div class="board" id="board">
-  Loading…
-</div>
+<h1>SPLIT-FLAP BOARD</h1>
+
+<div id="board"></div>
 
 <script>
 async function loadBoard() {
+  try {
     const res = await fetch("board.json?cache=" + Date.now());
     const data = await res.json();
-
-    const board = document.getElementById("board");
-    board.innerHTML = "";
-
-    data.rows.forEach(r => {
-        const div = document.createElement("div");
-        div.className = "row";
-        div.textContent = r;
-        board.appendChild(div);
-    });
+    renderBoard(data.lines);
+  } catch (e) {
+    renderBoard(["ERROR", "LOADING BOARD"]);
+  }
 }
 
-// refresh every 5 seconds
+function renderBoard(lines){
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+
+  lines.forEach(line => {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const padded = line.padEnd(24, " ");  
+    [...padded].forEach(ch => {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.textContent = ch;
+      row.appendChild(cell);
+    });
+
+    board.appendChild(row);
+  });
+}
+
 loadBoard();
 setInterval(loadBoard, 5000);
 </script>
