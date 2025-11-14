@@ -2,95 +2,273 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Departure Board</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Split-Flap Display</title>
+
 <style>
     body {
-        background: #111;
-        font-family: "Courier New", monospace;
-        color: #0f0;
-        display: flex;
-        justify-content: center;
-        padding-top: 40px;
+        margin: 0;
+        background: #050505;
+        font-family: monospace;
     }
 
     #board {
-        width: 80%;
-        max-width: 900px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 20px;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
     }
 
     .row {
-        display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr;
-        padding: 12px;
-        margin-bottom: 6px;
-        background: #000;
-        border: 1px solid #333;
-        font-size: 26px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
+        display: flex;
+        gap: 4px;
     }
 
     .flap {
-        display: inline-block;
-        animation: flap 0.6s ease-in-out;
+        position: relative;
+        width: 1.8ch;
+        height: 2.3em;
+        background: #0b0b0b;
+        color: #fff;
+        font-size: 2em;
+        border: 1px solid #333;
+        border-radius: 4px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        perspective: 300px;
     }
 
-    @keyframes flap {
+    .flap .top,
+    .flap .bottom {
+        position: absolute;
+        width: 100%;
+        height: 50%;
+        line-height: 1.1em;
+        background: #0b0b0b;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        backface-visibility: hidden;
+    }
+
+    .flap .top {
+        top: 0;
+        border-bottom: 1px solid #111;
+    }
+
+    .flap .bottom {
+        bottom: 0;
+        border-top: 1px solid #111;
+    }
+
+    .flip .top {
+        animation: flipTop 0.12s forwards;
+    }
+
+    .flip .bottom {
+        animation: flipBottom 0.12s forwards;
+    }
+
+    @keyframes flipTop {
         0% { transform: rotateX(0deg); }
-        50% { transform: rotateX(90deg); opacity: 0; }
-        100% { transform: rotateX(0deg); opacity: 1; }
+        100% { transform: rotateX(-90deg); }
+    }
+
+    @keyframes flipBottom {
+        0% { transform: rotateX(90deg); }
+        100% { transform: rotateX(0deg); }
     }
 </style>
 </head>
 
 <body>
-<div id="board">Loading…</div>
+<div id="board"></div>
+
+<!-- Rattle sound -->
+<audio id="rattle" preload="auto">
+    <source src="https://files.catbox.moe/9k8m1j.wav" type="audio/wav">
+</audio>
 
 <script>
-async function loadSheet() {
-    const url =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZC7o-uCL_EPgbwLY9Vrf4E0nN2XkeOtXBxUtqrm3y77GOV1T5NtX5skMusVZBbmuU5ikPsQssqZca/gviz/tq?tq=select%20*";
+/* -------------------------------------------------------------
+   CONFIG
+------------------------------------------------------------- */
 
-    const res = await fetch(url);
-    const text = await res.text();
+// Your Google Sheet JSON feed:
+const SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSZC7o-uCL_EPgbwLY9Vrf4E0nN2XkeOtXBxUtqrm3y77GOV1T5NtX5skMusVZBbmuU5ikPsQssqZca/gviz/tq?tq=select%20*";
 
-    // Extract JSON from Google's weird response
-    const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
+// Board size
+const ROWS = 5;
+const COLS = 20;
 
-    const rows = json.table.rows;
+// Polling interval
+const POLL_INTERVAL = 10000;
 
-    // Convert rows → simple array of arrays
-    const parsed = rows.map(r => r.c.map(c => c ? c.v : ""));
+// Characters allowed
+const CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.,/() ";
 
-    // First 5 rows only
-    const sliced = parsed.slice(0, 5);
 
-    drawBoard(sliced);
+/* -------------------------------------------------------------
+   SOUND
+------------------------------------------------------------- */
+
+function playRattle() {
+    const snd = document.getElementById("rattle");
+    snd.currentTime = 0;
+    snd.play().catch(() => {});
 }
 
-function drawBoard(data) {
-    const board = document.getElementById("board");
-    board.innerHTML = "";
 
-    data.forEach(cols => {
+/* -------------------------------------------------------------
+   SPLIT-FLAP INITIALISATION
+------------------------------------------------------------- */
+
+const board = document.getElementById("board");
+let flaps = [];
+
+function createBoard() {
+    board.innerHTML = "";
+    flaps = [];
+
+    for (let r = 0; r < ROWS; r++) {
         const row = document.createElement("div");
         row.className = "row";
 
-        cols.forEach(text => {
-            const cell = document.createElement("div");
-            cell.innerHTML = `<span class="flap">${text}</span>`;
-            row.appendChild(cell);
-        });
+        const rowFlaps = [];
 
+        for (let c = 0; c < COLS; c++) {
+            const flap = document.createElement("div");
+            flap.className = "flap";
+
+            flap.innerHTML = `
+                <div class="top"> </div>
+                <div class="bottom"> </div>
+            `;
+
+            row.appendChild(flap);
+            rowFlaps.push(flap);
+        }
+
+        flaps.push(rowFlaps);
         board.appendChild(row);
-    });
+    }
 }
 
-// Load now
-loadSheet();
+createBoard();
 
-// Auto-refresh every 15 seconds
-setInterval(loadSheet, 15000);
+
+/* -------------------------------------------------------------
+   SET TEXT INTO BOARD (with flips)
+------------------------------------------------------------- */
+
+function setBoardText(lines) {
+    playRattle();
+
+    for (let r = 0; r < ROWS; r++) {
+        const text = (lines[r] || "").padEnd(COLS, " ");
+
+        for (let c = 0; c < COLS; c++) {
+            const flap = flaps[r][c];
+            const ch = text[c].toUpperCase();
+
+            const top = flap.querySelector(".top");
+            const bottom = flap.querySelector(".bottom");
+
+            if (bottom.textContent === ch) continue;
+
+            flap.classList.remove("flip");
+            void flap.offsetWidth; // force reflow
+
+            flap.querySelector(".top").textContent = bottom.textContent;
+            flap.querySelector(".bottom").textContent = ch;
+
+            flap.classList.add("flip");
+        }
+    }
+}
+
+
+/* -------------------------------------------------------------
+   TEMPORARY MESSAGE
+------------------------------------------------------------- */
+
+function temporaryMessage(msg) {
+    const lines = Array(ROWS).fill(msg.padEnd(COLS, " ").slice(0, COLS));
+    setBoardText(lines);
+}
+
+
+/* -------------------------------------------------------------
+   GOOGLE SHEET FETCH
+------------------------------------------------------------- */
+
+async function fetchSheet() {
+    temporaryMessage("UPDATING…");
+
+    try {
+        const response = await fetch(SHEET_URL + "&_=" + Date.now(), {
+            cache: "no-store",
+        });
+
+        const text = await response.text();
+        const match = text.match(
+            /google\.visualization\.Query\.setResponse\(([\s\S]+)\);/
+        );
+
+        if (!match) throw new Error("Bad sheet response");
+
+        const json = JSON.parse(match[1]);
+        const rows = json.table.rows;
+
+        const lines = rows.map((r) =>
+            r.c.map((c) => (c ? c.v : "")).join(" ").toUpperCase()
+        );
+
+        setBoardText(lines);
+
+    } catch (err) {
+        console.error(err);
+        temporaryMessage("LOAD ERROR");
+    }
+}
+
+
+/* -------------------------------------------------------------
+   BOOT SEQUENCE
+------------------------------------------------------------- */
+
+async function bootSequence() {
+    // Fill everything with random characters flipping
+    for (let i = 0; i < 10; i++) {
+        const lines = Array(ROWS)
+            .fill(0)
+            .map(() =>
+                Array(COLS)
+                    .fill(0)
+                    .map(
+                        () =>
+                            CHARSET[Math.floor(Math.random() * CHARSET.length)]
+                    )
+                    .join("")
+            );
+
+        setBoardText(lines);
+        await new Promise((res) => setTimeout(res, 150));
+    }
+
+    temporaryMessage("READY");
+}
+
+bootSequence().then(() => {
+    fetchSheet();
+    setInterval(fetchSheet, POLL_INTERVAL);
+});
 </script>
 </body>
 </html>
