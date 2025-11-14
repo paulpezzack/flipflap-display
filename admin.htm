@@ -1,79 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8"/>
 <title>Admin Panel</title>
 <style>
-body { 
-    background: #111;
-    color: #eee;
-    font-family: sans-serif;
-    padding: 20px;
-}
-input {
-    width: 100%;
-    padding: 12px;
-    margin: 8px 0;
-    font-size: 18px;
-}
-button {
-    width: 100%;
-    padding: 15px;
-    font-size: 20px;
-    background: #28a745;
-    border: none;
-    color: white;
-    margin-top: 10px;
-}
+  body { background:#000; color:#fff; font-family:sans-serif; padding:20px; }
+  textarea { width:100%; height:140px; margin-bottom:10px; font-size:18px; }
+  button { font-size:18px; padding:12px 20px; width:100%; }
 </style>
 </head>
 <body>
 
-<h2>Update Split-Flap Board</h2>
+<h2>Board Admin</h2>
+<p>Edit 5 lines (one per row):</p>
 
-<input id="r1" placeholder="Row 1">
-<input id="r2" placeholder="Row 2">
-<input id="r3" placeholder="Row 3">
-<input id="r4" placeholder="Row 4">
-<input id="r5" placeholder="Row 5">
+<textarea id="l1"></textarea>
+<textarea id="l2"></textarea>
+<textarea id="l3"></textarea>
+<textarea id="l4"></textarea>
+<textarea id="l5"></textarea>
 
 <button onclick="save()">SAVE</button>
 
+<p id="msg"></p>
+
 <script>
 async function save() {
+  const lines = [
+    l1.value,
+    l2.value,
+    l3.value,
+    l4.value,
+    l5.value
+  ];
 
-    const token = "YOUR_TOKEN_HERE"; // <--- paste token here safely
+  document.getElementById("msg").textContent = "Sending…";
 
-    const rows = [
-        document.getElementById("r1").value,
-        document.getElementById("r2").value,
-        document.getElementById("r3").value,
-        document.getElementById("r4").value,
-        document.getElementById("r5").value
-    ];
+  const res = await fetch("https://api.github.com/repos/paulpezzack/paulpezzack.github.io/actions/workflows/update-board.yml/dispatches", {
+    method: "POST",
+    headers: {
+      "Accept": "application/vnd.github+json"
+    },
+    body: JSON.stringify({
+      ref: "main",
+      inputs: {
+        lines: JSON.stringify(lines)
+      }
+    })
+  });
 
-    const body = {
-        message: "Update board",
-        content: btoa(JSON.stringify({ rows }, null, 2))
-    };
-
-    const res = await fetch(
-        "https://api.github.com/repos/paulpezzack/paulpezzack.github.io/contents/board.json",
-        {
-            method: "PUT",
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(body)
-        }
-    );
-
-    if (!res.ok) {
-        alert("Error: " + res.status);
-    } else {
-        alert("Updated!");
-    }
+  if (res.ok) {
+    msg.textContent = "✔ Update sent! Page will refresh in a few seconds.";
+  } else {
+    msg.textContent = "❌ Error sending update.";
+  }
 }
 </script>
 
