@@ -129,7 +129,11 @@ async function fetchBoard(){
 }
 
 async function flicker(){
-  for(let k=0;k<8;k++){
+  // Use requestAnimationFrame-based flicker to avoid blocking
+  let cycles = 8;
+  function doCycle(resolve){
+    if(cycles<=0){ resolve(); return; }
+    cycles--;
     for(let r=0;r<ROWS;r++){
       for(let c=0;c<COLS;c++){
         let s = boardSlots[r][c];
@@ -138,6 +142,13 @@ async function flicker(){
         s.bot.textContent = ch;
         s.current = ch;
       }
+    }
+    setTimeout(()=>{
+      requestAnimationFrame(()=>doCycle(resolve));
+    }, 40);
+  }
+  return new Promise(res=>doCycle(res));
+}
     }
     await new Promise(r=>setTimeout(r,80));
   }
