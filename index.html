@@ -44,7 +44,6 @@
     overflow:visible;
   }
 
-  /* static halves (showing current char) */
   .half {
     position:absolute; left:0; right:0; height:50%; display:flex; align-items:center; justify-content:center;
     backface-visibility:hidden; overflow:hidden;
@@ -52,7 +51,6 @@
   .half.top { top:0; border-bottom:1px solid rgba(255,255,255,0.03); border-top-left-radius:6px; border-top-right-radius:6px; background: linear-gradient(#111,#0b0b0b); }
   .half.bot { bottom:0; border-top:1px solid rgba(0,0,0,0.6); border-bottom-left-radius:6px; border-bottom-right-radius:6px; background: linear-gradient(#060606,#090909); }
 
-  /* flipping faces (animated) */
   .flip-top, .flip-bot {
     position:absolute; left:0; right:0; height:50%; display:flex; align-items:center; justify-content:center; pointer-events:none;
     transform-origin:bottom center;
@@ -61,7 +59,6 @@
 
   .char { font-size:1.75rem; line-height:1; user-select:none; color:var(--text); }
 
-  /* animation classes applied by JS */
   .anim-top { animation: topFlip 240ms forwards; }
   .anim-bot { animation: botFlip 240ms 160ms forwards; }
 
@@ -95,13 +92,15 @@
 
 <script>
 /* ================= CONFIG ================= */
-const BOARD_JSON = 'board.json';   // file in repo root
+const BOARD_JSON = 'board.json';
 const ROWS = 5;
 const COLS = 24;
-const POLL_MS = 30000;
-const STEP_MS = 60; // step interval per glyph
+const POLL_MS = 30000;        // 30 seconds
+const STEP_MS = 60;
 const GLYPH_ORDER = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.,:/()'.split('');
 const AUDIO_ENABLED_MSG = 'Tap to enable sound';
+
+let pollTimer = null;
 
 /* =============== AUDIO ENGINE =============== */
 const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -122,7 +121,6 @@ function playTick(volume = 0.25, freq = 1700, dur = 0.03) {
 
 function playRattle(intensity = 0.8, duration = 0.12) {
   if (!audioCtx) return;
-  // create short noise burst
   const sr = audioCtx.sampleRate;
   const buffer = audioCtx.createBuffer(1, sr * duration, sr);
   const data = buffer.getChannelData(0);
@@ -143,7 +141,6 @@ function playRattle(intensity = 0.8, duration = 0.12) {
   src.stop(audioCtx.currentTime + duration);
 }
 
-/* allow mobile browsers to resume audio on user gesture */
 document.addEventListener('click', () => {
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume().catch(()=>{});
@@ -153,7 +150,7 @@ document.addEventListener('click', () => {
 /* =============== BUILD DOM =============== */
 const rowsContainer = document.getElementById('rowsContainer');
 const meta = document.getElementById('meta');
-const boardSlots = []; // rows -> slots
+const boardSlots = [];
 
 function buildBoard() {
   rowsContainer.innerHTML = '';
@@ -215,24 +212,19 @@ function scheduleFlip(slot, targetChar, delay = 0) {
 
     function step() {
       const next = nextGlyph(cur, tgt);
-      // prepare faces
       slot.flipTopChar.textContent = cur;
       slot.flipBotChar.textContent = next;
 
-      // reset classes
       slot.flipTop.classList.remove('anim-top');
       slot.flipBot.classList.remove('anim-bot');
-      // force reflow
       void slot.flipTop.offsetWidth;
       void slot.flipBot.offsetWidth;
-      // animate
+
       slot.flipTop.classList.add('anim-top');
       slot.flipBot.classList.add('anim-bot');
 
-      // tick per step
       playTick(0.08 + Math.random() * 0.06, 1700 + Math.random() * 300, 0.03);
 
-      // after animation, commit the glyph
       setTimeout(() => {
         slot.topStatic.textContent = next;
         slot.botStatic.textContent = next;
@@ -243,14 +235,13 @@ function scheduleFlip(slot, targetChar, delay = 0) {
         } else {
           resolve();
         }
-      }, 360); // slightly longer than CSS duration to be safe
+      }, 360);
     }
 
     setTimeout(step, delay);
   });
 }
 
-/* batch update: flips only differing slots, staggered cascade */
 async function updateRow(rowIndex, message) {
   const slots = boardSlots[rowIndex];
   const msg = (message || '').toString().toUpperCase().padEnd(COLS, ' ').slice(0, COLS);
@@ -259,7 +250,6 @@ async function updateRow(rowIndex, message) {
     const slot = slots[i];
     const tgt = msg[i] || ' ';
     if ((slot.current || ' ') !== tgt) {
-      // left->right cascade: base delay + little jitter
       const delay = Math.floor(i * 20 + Math.random() * 40);
       tasks.push(scheduleFlip(slot, tgt, delay));
     }
@@ -268,7 +258,7 @@ async function updateRow(rowIndex, message) {
   await Promise.all(tasks);
 }
 
-/* =============== BOARD UPDATE (fetching board.json) =============== */
+/* =============== BOARD UPDATE =============== */
 async function fetchBoard() {
   meta.textContent = 'Updating…';
   try {
@@ -276,9 +266,7 @@ async function fetchBoard() {
     if (!res.ok) throw new Error('Fetch failed: ' + res.status);
     const data = await res.json();
     const lines = (Array.isArray(data.lines) ? data.lines : data.rows || []).slice(0, ROWS);
-    // ensure we have ROWS elements
     while (lines.length < ROWS) lines.push('');
-    // perform row updates in parallel (but each row cascades left→right)
     const rowPromises = [];
     for (let r = 0; r < ROWS; r++) {
       rowPromises.push(updateRow(r, lines[r]));
@@ -288,20 +276,28 @@ async function fetchBoard() {
   } catch (err) {
     console.error(err);
     meta.textContent = 'Load error — showing last data';
-    // small audible error rattle
     playRattle(0.65, 0.14);
   }
 }
 
 /* =============== BOOT SEQUENCE =============== */
 async function boot() {
-  // random flicker for a few frames
+  // wipe state to force a full “reboot”
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const s = boardSlots[r][c];
+      s.topStatic.textContent = ' ';
+      s.botStatic.textContent = ' ';
+      s.current = ' ';
+    }
+  }
+
+  // flicker noise
   for (let k = 0; k < 8; k++) {
     const rndLines = Array.from({length: ROWS}, () =>
       Array.from({length: COLS}, () => GLYPH_ORDER[Math.floor(Math.random()*GLYPH_ORDER.length)]).join('')
     );
     for (let r = 0; r < ROWS; r++) {
-      // fast replace to create noise
       const slots = boardSlots[r];
       for (let c = 0; c < COLS; c++) {
         const s = slots[c];
@@ -312,16 +308,20 @@ async function boot() {
     }
     await new Promise(res => setTimeout(res, 80));
   }
+
   meta.textContent = AUDIO_ENABLED_MSG + ' — ready';
-  // then immediate fetch
+
   await fetchBoard();
+
+  // restart the timer cleanly
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    boot();
+  }, POLL_MS);
 }
 
 /* initial run */
-boot().then(() => {
- setInterval(boot, POLL_MS);
-});
+boot();
 </script>
 </body>
 </html>
-
