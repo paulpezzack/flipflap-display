@@ -98,7 +98,7 @@
 const BOARD_JSON = 'board.json';   // file in repo root
 const ROWS = 5;
 const COLS = 24;
-const POLL_MS = 5000;
+const POLL_MS = 30000;
 const STEP_MS = 60; // step interval per glyph
 const GLYPH_ORDER = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.,:/()'.split('');
 const AUDIO_ENABLED_MSG = 'Tap to enable sound';
@@ -319,8 +319,9 @@ async function boot() {
 
 /* initial run */
 boot().then(() => {
-  setInterval(fetchBoard, POLL_MS);
+ setInterval(boot, POLL_MS);
 });
 </script>
 </body>
 </html>
+
